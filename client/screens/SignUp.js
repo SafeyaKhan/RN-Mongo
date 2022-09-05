@@ -1,20 +1,33 @@
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Image } from 'react-native'
-import React, { useState } from 'react'
+import React, { useState, useContext } from 'react'
 import axios from 'axios';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTogglePasswordVisibility } from './useTogglePasswordVisibility';
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { AuthContext } from '../context/auth';
 
 const SignUp = ({ navigation }) => {
+    const { passwordVisibility, rightIcon, handlePasswordVisibility } = useTogglePasswordVisibility();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [state, setState]= useContext(AuthContext);
 
     const handleSubmit = async () => {
         if (name === '' || email === '' || password === '') {
             alert('Please fill all the fields');
             return;
         }
-        await axios.post('http://localhost:8001/api/signup', { name, email, password });
-        alert('Successfully Signed Up');
+        const resp = await axios.post('http://localhost:8000/api/signup', { name, email, password });
+        if (resp.data.error)
+            alert(resp.data.error);
+        else {
+            setState(resp.data)
+            await AsyncStorage.setItem('auth-rn', JSON.stringify(resp.data));
+            alert("Sign Up Successfully");
+            navigation.navigate('Home');
+        }
     }
 
     return (
@@ -23,7 +36,7 @@ const SignUp = ({ navigation }) => {
                 <View style={styles.imgContainer}>
                     <Image source={require('../assets/logo.png')} style={styles.image} />
                 </View>
-                <Text style={styles.signupText}>SignUp</Text>
+                <Text style={styles.signupText}>Sign Up</Text>
                 <View style={{ marginHorizontal: 24 }}>
                     <Text style={{ fontSize: 16, color: '#8e93a1' }}>Name</Text>
                     <TextInput style={styles.signupInput} value={name} onChangeText={text => setName(text)}
@@ -31,12 +44,24 @@ const SignUp = ({ navigation }) => {
                 </View>
                 <View style={{ marginHorizontal: 24 }}>
                     <Text style={{ fontSize: 16, color: '#8e93a1' }}>Email</Text>
-                    <TextInput style={styles.signupInput} value={email} onChangeText={text => setEmail(text)} />
+                    <TextInput style={styles.signupInput} value={email} onChangeText={text => setEmail(text)}
+                    autoCapitalize='none' />
                 </View>
-                <View style={{ marginHorizontal: 24 }}>
+                {/* <View style={{ marginHorizontal: 24 }}>
                     <Text style={{ fontSize: 16, color: '#8e93a1' }}>Password</Text>
                     <TextInput style={styles.signupInput} value={password} onChangeText={text => setPassword(text)}
                         secureTextEntry={true} />
+                </View> */}
+                <View style={{ marginHorizontal: 24 }}>
+                    <Text style={{ fontSize: 16, color: '#8e93a1' }}>Password</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <TextInput style={styles.signupInput2} value={password} onChangeText={text => setPassword(text)}
+                            secureTextEntry={passwordVisibility} />
+                        <TouchableOpacity onPress={handlePasswordVisibility}>
+                            <MaterialCommunityIcons name={rightIcon} size={22} color="#666666" />
+                        </TouchableOpacity>
+
+                    </View>
                 </View>
                 <TouchableOpacity onPress={handleSubmit} style={styles.btnstyle}>
                     <Text style={styles.btntext}>Submit</Text>
@@ -44,7 +69,7 @@ const SignUp = ({ navigation }) => {
                 {/* <Text style={{marginHorizontal:24}}>{JSON.stringify({name,email,password})}</Text> */}
                 <Text style={{ fontSize: 12, textAlign: 'center' }}>Already Joined?
                     {" "}
-                    <Text style={{ color: 'darkred', fontWeight: 'bold' }} onPress={() => navigation.navigate("SignIn")}>
+                    <Text style={{ color: '#da1c4b', fontWeight: 'bold' }} onPress={() => navigation.navigate("SignIn")}>
                         Sign In
                     </Text>
                 </Text>
@@ -67,9 +92,16 @@ const styles = StyleSheet.create({
     },
     signupInput: {
         borderBottomWidth: 0.5,
-        height: 48,
+        height: 38,
         borderBottomColor: '#8e93a1',
         marginBottom: 30
+    },
+    signupInput2: {
+        borderBottomWidth: 0.5,
+        height: 48,
+        borderBottomColor: '#8e93a1',
+        marginBottom: 30,
+        width: '90%'
     },
     btnstyle: {
         backgroundColor: '#da1c4b',

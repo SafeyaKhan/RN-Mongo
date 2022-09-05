@@ -1,9 +1,14 @@
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const { hashPassword, comparePassword } = require("../helpers/auth");
-// const { nanoid } = require("nanoid");
-var { nanoid } = require("nanoid");
-
+const { nanoid } = require('nanoid');
+const cloudinary = require("cloudinary");
+//cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_KEY,
+    api_secret: process.env.CLOUDINARY_SECRET,
+})
 // sendgrid
 require("dotenv").config();
 const sgMail = require("@sendgrid/mail");
@@ -102,6 +107,7 @@ exports.forgotPassword = async (req, res) => {
         return res.json({ error: "User not found" });
     }
     // generate code
+    //let id = nanoid(5);
     const resetCode = nanoid(5).toUpperCase();
     // save to db
     user.resetCode = resetCode;
@@ -111,7 +117,7 @@ exports.forgotPassword = async (req, res) => {
         from: process.env.EMAIL_FROM,
         to: user.email,
         subject: "Password reset code",
-        html: "<h1>Your password  reset code is: {resetCode}</h1>"
+        html: `<h1>Your password  reset code is: ${resetCode}</h1>`
     };
     // send email
     try {
@@ -148,3 +154,52 @@ exports.resetPassword = async (req, res) => {
         console.log(err);
     }
 };
+
+exports.uploadImage = async (req, res) => {
+    try{
+        const result = await cloudinary.uploader.upload(req.body.image,{
+            public_id: nanoid(),
+            ressource_type: "jog"
+        })
+        console.log(req.body.user);
+        const user = await User.findByIdAndUpdate(req.body.user._id,{
+            image: {
+                public_id: result.public_id,
+                url: result.secure_url
+            }
+        }, {new: true});
+
+        return res.json({
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            image: user.image,
+        })
+    } catch (error){
+        console.log(error)
+    }
+}
+
+
+exports.updatePassword = async (req, res) => {
+    try{
+       const {password} = req.body;
+       console.log(req.body.user.user._id)
+       if( password && password.length < 6){
+        return res.json({
+            error: "Password is required and should be minimum 6 characters long",
+        });        
+       } else {
+        //update db
+        const hashedPassword = await hashPassword(password);
+        const user = await User.findByIdAndUpdate(req.body.user.user._id, {
+            password: hashedPassword,
+        });
+        user.password = undefined;
+        user.secret = undefined;
+        return res.json(user);
+       }
+    } catch (err){
+        console.log(err)
+    }
+}
